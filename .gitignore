@@ -42,5 +42,4 @@ Thumbs.db
 *.log
 
 # Crawl data
-/data/*.json
-/data/*.csv
+/data/
