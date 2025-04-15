@@ -7,6 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.jsoup.parser.Parser;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -14,7 +15,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Phân tích và trích xuất thông tin từ url
+ * Parses article details from a given URL.
  */
 public class ArticleParser {
     private static final Logger logger = LoggerFactory.getLogger(ArticleParser.class);
@@ -23,6 +24,7 @@ public class ArticleParser {
     private static final long RETRY_DELAY_MS = ConfigLoader.getRetryDelayMs();
     private static final int MAX_RETRIES = ConfigLoader.getMaxRetries();
     private static final List<String> CONTENT_SELECTORS = ConfigLoader.getContentSelectors();
+    private static final List<Integer> RETRY_STATUS_CODES = ConfigLoader.getRetryStatusCodes();
     private static final ObjectMapper mapper = new ObjectMapper();
 
     public Article parseArticle(String url) {
@@ -42,13 +44,13 @@ public class ArticleParser {
                     JsonNode node = mapper.readTree(script.html());
                     if (node.has("@type")) {
                         String type = node.get("@type").asText();
-                        if (type.equals("NewsArticle")) {
-                            newsArticleNode = node;
-                        } else if (type.equals("BreadcrumbList")) {
-                            breadcrumbNode = node;
-                        } else if (type.equals("ItemList")) {
-                            logger.debug("URL is an ItemList (event page), not a NewsArticle: {}", url);
-                            return null;
+                        switch (type) {
+                            case "NewsArticle" -> newsArticleNode = node;
+                            case "BreadcrumbList" -> breadcrumbNode = node;
+                            case "ItemList" -> {
+                                logger.debug("URL is an ItemList (event page), not a NewsArticle: {}", url);
+                                return null;
+                            }
                         }
                     }
                 }
@@ -59,7 +61,10 @@ public class ArticleParser {
                 }
 
                 String title = newsArticleNode.get("headline").asText();
+                title = Parser.unescapeEntities(title, true);
+
                 String description = newsArticleNode.get("description").asText();
+                description = Parser.unescapeEntities(description, true);
 
                 String author;
                 JsonNode authorNode = newsArticleNode.get("author");
@@ -79,7 +84,23 @@ public class ArticleParser {
                 }
 
                 String publishTimeStr = newsArticleNode.get("datePublished").asText();
-                OffsetDateTime offsetDateTime = OffsetDateTime.parse(publishTimeStr);
+                String dateFormatHandling = ConfigLoader.getDateFormatHandling();
+                if ("fixWhitespace".equals(dateFormatHandling)) {
+                    publishTimeStr = publishTimeStr.replaceAll("\\s+(?=[+-]\\d{2}:\\d{2})", "");
+                }
+
+                if (!publishTimeStr.matches(".*[+-]\\d{2}:\\d{2}")) {
+                    String defaultOffset = ConfigLoader.getDefaultOffset();
+                    publishTimeStr = publishTimeStr + defaultOffset;
+                }
+
+                OffsetDateTime offsetDateTime;
+                try {
+                    offsetDateTime = OffsetDateTime.parse(publishTimeStr);
+                } catch (Exception e) {
+                    logger.error("Failed to parse datePublished: {}", publishTimeStr, e);
+                    return null;
+                }
                 Date publishTime = Date.from(offsetDateTime.atZoneSameInstant(ZoneId.systemDefault()).toInstant());
 
                 String category = null;
@@ -90,11 +111,11 @@ public class ArticleParser {
                         if (items.size() > position) {
                             JsonNode categoryNode = items.get(position);
                             if (ConfigLoader.isNestedArray()) {
-                                categoryNode = categoryNode.get(0); // Xử lý cấu trúc lồng mảng
+                                categoryNode = categoryNode.get(0);
                             }
 
                             String urlField = ConfigLoader.getCategoryUrlField();
-                            String categoryUrl = null;
+                            String categoryUrl;
                             if (urlField.contains(".")) {
                                 String[] fields = urlField.split("\\.");
                                 JsonNode urlNode = categoryNode;
@@ -159,8 +180,8 @@ public class ArticleParser {
                 logger.debug("Parsed article: {}", article.getTitle());
                 return article;
             } catch (HttpStatusException e) {
-                if (e.getStatusCode() == 429) {
-                    logger.warn("Received 429 error for URL: {}. Attempt {}/{}, retrying after {}ms", url, attempt, MAX_RETRIES, RETRY_DELAY_MS);
+                if (RETRY_STATUS_CODES.contains(e.getStatusCode())) {
+                    logger.warn("Received {} error for URL: {}. Attempt {}/{}, retrying after {}ms", e.getStatusCode(), url, attempt, MAX_RETRIES, RETRY_DELAY_MS);
                     if (attempt == MAX_RETRIES) {
                         logger.error("Max retries reached for URL: {}", url, e);
                         return null;

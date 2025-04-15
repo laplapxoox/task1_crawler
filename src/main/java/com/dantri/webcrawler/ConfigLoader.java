@@ -108,6 +108,19 @@ public class ConfigLoader {
         return getDomainConfig().get("timestampPattern").asText();
     }
 
+    public static String getDateFormatHandling() {
+        return getDomainConfig().get("dateFormatHandling").asText();
+    }
+
+    public static String getDefaultOffset() {
+        return getDomainConfig().get("defaultOffset").asText();
+    }
+
+    public static List<Integer> getRetryStatusCodes() {
+        JsonNode codesNode = config.get("settings").get("retryStatusCodes");
+        return Arrays.asList(mapper.convertValue(codesNode, Integer[].class));
+    }
+
     private static JsonNode getDomainConfig() {
         JsonNode domains = config.get("domains");
         for (JsonNode domain : domains) {
