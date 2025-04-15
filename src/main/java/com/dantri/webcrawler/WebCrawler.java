@@ -13,13 +13,13 @@ import java.util.regex.Pattern;
  */
 public class WebCrawler {
     private static final Logger logger = LoggerFactory.getLogger(WebCrawler.class);
-    private static final String START_URL = "https://dantri.com.vn/";
-    private static final Pattern ARTICLE_URL_PATTERN = Pattern.compile("https://dantri\\.com\\.vn/[^/]+/.*-\\d{17}\\.htm");
-    private static final Pattern CATEGORY_URL_PATTERN = Pattern.compile("https://dantri\\.com\\.vn/.*\\.htm(?<!-\\d{17}\\.htm)");
-    private static final int DEFAULT_MAX_LEVEL = 2;
-    private static final int MAX_LEVEL_WITHIN_SIX_MONTHS = 5;
-    private static final int MAX_URLS_PER_CRAWL = 500;
-    private static final long SIX_MONTHS_MILLIS = 180L * 24 * 60 * 60 * 1000; // 6 tháng tính bằng milliseconds
+    private static final String START_URL = ConfigLoader.getStartUrl();
+    private static final Pattern ARTICLE_URL_PATTERN = Pattern.compile(ConfigLoader.getArticleUrlPattern());
+    private static final Pattern CATEGORY_URL_PATTERN = Pattern.compile(ConfigLoader.getCategoryUrlPattern());
+    private static final int DEFAULT_MAX_LEVEL = ConfigLoader.getDefaultMaxLevel();
+    private static final int MAX_LEVEL_WITHIN_SIX_MONTHS = ConfigLoader.getMaxLevelWithinSixMonths();
+    private static final int MAX_URLS_PER_CRAWL = ConfigLoader.getMaxUrlsPerCrawl();
+    private static final long SIX_MONTHS_MILLIS = ConfigLoader.getSixMonthsMillis(); // 6 tháng tính bằng milliseconds
 
     private final LinkExtractor linkExtractor;
     private final ArticleParser articleParser;
@@ -45,6 +45,8 @@ public class WebCrawler {
         PriorityQueue<UrlWithLevel> queue = new PriorityQueue<>(Comparator.comparingInt(UrlWithLevel::getLevel));
         queue.add(new UrlWithLevel(START_URL, 0));
 
+        Set<String> seenCategoriesInThisCrawl = new HashSet<>();
+
         int processedUrls = 0;
 
         while (!queue.isEmpty() && processedUrls < MAX_URLS_PER_CRAWL) {
@@ -65,6 +67,16 @@ public class WebCrawler {
                     logger.debug("Article URL already visited, skipping: {}", url);
                     continue;
                 }
+                visitedUrlsManager.addVisitedUrl(url);
+                Article article = articleParser.parseArticle(url);
+                if (article != null) {
+                    if (isWithinSixMonths(article.getPublishTime())) {
+                        logger.debug("Article is older than 6 months, skipping: {}", url);
+                        continue;
+                    }
+//                    if (articleStorage.articleExists(article)) continue;
+                    articleStorage.saveArticle(article);
+                }
             }
 
             if (isCategory) {
@@ -72,6 +84,7 @@ public class WebCrawler {
             } else if (isArticle) {
                 logger.debug("Processing article URL: {} (level {})", url, level);
             } else {
+                visitedUrlsManager.addVisitedUrl(url);
                 logger.debug("Processing other URL: {} (level {})", url, level);
             }
 
@@ -91,14 +104,20 @@ public class WebCrawler {
                     visitedUrlsManager.addVisitedUrl(outlink);
                     Article article = articleParser.parseArticle(outlink);
                     if (article != null) {
-                        // Kiểm tra bài viết có trong vòng 6 tháng không
-                        if (!isWithinSixMonths(article.getPublishTime())) {
+                        if (isWithinSixMonths(article.getPublishTime())) {
                             logger.debug("Article is older than 6 months, skipping: {}", outlink);
                             continue;
                         }
+//                        if (articleStorage.articleExists(article)) continue;
                         articleStorage.saveArticle(article);
                     }
                 } else if (outlinkIsCategory) {
+                    // Kiểm tra xem URL danh mục đã được thêm vào queue trong lần crawl này chưa
+                    if (seenCategoriesInThisCrawl.contains(outlink)) {
+                        logger.debug("Category URL already added to queue in this crawl, skipping: {}", outlink);
+                        continue;
+                    }
+                    seenCategoriesInThisCrawl.add(outlink);
                     queue.add(new UrlWithLevel(outlink, level + 1));
                 } else {
                     queue.add(new UrlWithLevel(outlink, level + 1));
@@ -141,11 +160,11 @@ public class WebCrawler {
     // Kiểm tra thời gian của bài báo có trong vòng 6 tháng
     private boolean isWithinSixMonths(Date publishTime) {
         if (publishTime == null) {
-            return false;
+            return true;
         }
         long currentTime = System.currentTimeMillis();
         long publishTimeMillis = publishTime.getTime();
-        return (currentTime - publishTimeMillis) <= SIX_MONTHS_MILLIS;
+        return (currentTime - publishTimeMillis) > SIX_MONTHS_MILLIS;
     }
 
     /**

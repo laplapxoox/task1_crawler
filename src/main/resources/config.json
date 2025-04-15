@@ -1,0 +1,81 @@
+{
+  "currentDomain": "vnexpress",
+  "domains": [
+	{
+	  "name": "dantri",
+	  "startUrl": "https://dantri.com.vn/",
+	  "articleUrlPattern": "https://dantri\\.com\\.vn/[^/]+/.*-\\d{17}\\.htm",
+	  "categoryUrlPattern": "https://dantri\\.com\\.vn/.*\\.htm(?<!-\\d{17}\\.htm)",
+	  "contentSelectors": [
+		"div.singular-content",
+		"div.e-magazine__body.dnews__body",
+		"div.e-magazine__body",
+		"div.e-magazine__body#content",
+		"div[itemprop=\"articleBody\"]"
+	  ],
+	  "categoryPosition": 1,
+	  "isNestedArray": true,
+	  "categoryUrlField": "item",
+	  "categoryUrlSuffix": ".htm",
+	  "timestampPattern": ".*-(\\d{17})\\.htm"
+	},
+	{
+	  "name": "vnexpress",
+	  "startUrl": "https://vnexpress.net/",
+	  "articleUrlPattern": "https://vnexpress\\.net/[^/]+-\\d+\\.html",
+	  "categoryUrlPattern": "https://vnexpress\\.net/.*(?<!-\\d+\\.html)",
+	  "contentSelectors": ["article.fck_detail p"],
+	  "categoryPosition": 0,
+	  "isNestedArray": false,
+	  "categoryUrlField": "item.@id",
+	  "categoryUrlSuffix": "",
+	  "timestampPattern": ".*-(\\d+)\\.html"
+	},
+	{
+	  "name": "vietnamnet",
+	  "startUrl": "https://vietnamnet.vn/",
+	  "articleUrlPattern": "https://vietnamnet\\.vn/.*-\\d+\\.html",
+	  "categoryUrlPattern": "https://vietnamnet\\.vn/.*(?<!-\\d+\\.html)",
+	  "contentSelectors": ["div.inner-article", "div.maincontent"],
+	  "categoryPosition": 1,
+	  "isNestedArray": false,
+	  "categoryUrlField": "item",
+	  "categoryUrlSuffix": "",
+	  "timestampPattern": ".*-(\\d+)\\.html"
+	},
+	{
+	  "name": "thanhnien",
+	  "startUrl": "https://thanhnien.vn/",
+	  "articleUrlPattern": "https://thanhnien\\.vn/.*-\\d+\\.htm",
+	  "categoryUrlPattern": "https://thanhnien\\.vn/.*\\.htm(?<!-\\d+\\.htm)",
+	  "contentSelectors": ["div[itemprop=\"articleBody\"]", "article.detail-content"],
+	  "categoryPosition": 1,
+	  "isNestedArray": false,
+	  "categoryUrlField": "item.@id",
+	  "categoryUrlSuffix": ".htm",
+	  "timestampPattern": ".*-(\\d+)\\.htm"
+	},
+	{
+	  "name": "tuoitre",
+	  "startUrl": "https://tuoitre.vn/",
+	  "articleUrlPattern": "https://tuoitre\\.vn/.*-\\d{17}\\.htm",
+	  "categoryUrlPattern": "https://tuoitre\\.vn/.*\\.htm(?<!-\\d{17}\\.htm)",
+	  "contentSelectors": ["div.detail-content", "article[itemprop=\"articleBody\"]"],
+	  "categoryPosition": 1,
+	  "isNestedArray": false,
+	  "categoryUrlField": "item.@id",
+	  "categoryUrlSuffix": ".htm",
+	  "timestampPattern": ".*-(\\d{17})\\.htm"
+	}
+  ],
+  "settings": {
+	"defaultContentSelectors": ["h1", "h2", "h3", "p", "span"],
+	"maxUrlsPerCrawl": 100,
+	"defaultMaxLevel": 2,
+	"maxLevelWithinSixMonths": 5,
+	"sixMonthsMillis": 15552000000,
+	"requestDelayMs": 500,
+	"retryDelayMs": 10000,
+	"maxRetries": 3
+  }
+}

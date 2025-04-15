@@ -9,18 +9,7 @@ public class Article {
     private String content;
     private Date publishTime;
     private String author;
-
-    public Article() {
-    }
-
-    public Article(String url, String title, String description, String content, Date publishTime, String author) {
-        this.url = url;
-        this.title = title;
-        this.description = description;
-        this.content = content;
-        this.publishTime = publishTime;
-        this.author = author;
-    }
+    private String category;
 
     public String getUrl() {
         return url;
@@ -70,15 +59,11 @@ public class Article {
         this.author = author;
     }
 
-    @Override
-    public String toString() {
-        return "Article{" +
-                "url='" + url + '\'' +
-                ", title='" + title + '\'' +
-                ", description='" + description + '\'' +
-                ", content='" + content + '\'' +
-                ", publishTime=" + publishTime +
-                ", author='" + author + '\'' +
-                '}';
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 }

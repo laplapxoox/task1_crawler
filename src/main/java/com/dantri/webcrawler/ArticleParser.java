@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -20,16 +19,10 @@ import java.util.List;
 public class ArticleParser {
     private static final Logger logger = LoggerFactory.getLogger(ArticleParser.class);
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_DELAY_MS = 1000;
-    private static final long REQUEST_DELAY_MS = 300;
-    private static final List<String> CONTENT_SELECTORS = Arrays.asList(
-            "div.singular-content",
-            "div.e-magazine__body.dnews__body",
-            "div.e-magazine__body",
-            "div.e-magazine__body#content",
-            "div[itemprop=\"articleBody\"]"
-    );
+    private static final long REQUEST_DELAY_MS = ConfigLoader.getRequestDelayMs();
+    private static final long RETRY_DELAY_MS = ConfigLoader.getRetryDelayMs();
+    private static final int MAX_RETRIES = ConfigLoader.getMaxRetries();
+    private static final List<String> CONTENT_SELECTORS = ConfigLoader.getContentSelectors();
     private static final ObjectMapper mapper = new ObjectMapper();
 
     public Article parseArticle(String url) {
@@ -44,13 +37,18 @@ public class ArticleParser {
                         .get();
 
                 JsonNode newsArticleNode = null;
+                JsonNode breadcrumbNode = null;
                 for (org.jsoup.nodes.Element script : doc.select("script[type=\"application/ld+json\"]")) {
                     JsonNode node = mapper.readTree(script.html());
                     if (node.has("@type")) {
                         String type = node.get("@type").asText();
                         if (type.equals("NewsArticle")) {
                             newsArticleNode = node;
-                            break;
+                        } else if (type.equals("BreadcrumbList")) {
+                            breadcrumbNode = node;
+                        } else if (type.equals("ItemList")) {
+                            logger.debug("URL is an ItemList (event page), not a NewsArticle: {}", url);
+                            return null;
                         }
                     }
                 }
@@ -60,7 +58,6 @@ public class ArticleParser {
                     return null;
                 }
 
-                // Lấy tiêu đề, tác giả, ngày tháng, tóm tắt
                 String title = newsArticleNode.get("headline").asText();
                 String description = newsArticleNode.get("description").asText();
 
@@ -85,13 +82,65 @@ public class ArticleParser {
                 OffsetDateTime offsetDateTime = OffsetDateTime.parse(publishTimeStr);
                 Date publishTime = Date.from(offsetDateTime.atZoneSameInstant(ZoneId.systemDefault()).toInstant());
 
-                // Lấy nội dung bài viết
+                String category = null;
+                if (breadcrumbNode != null && breadcrumbNode.has("itemListElement")) {
+                    JsonNode items = breadcrumbNode.get("itemListElement");
+                    if (items.isArray()) {
+                        int position = ConfigLoader.getCategoryPosition();
+                        if (items.size() > position) {
+                            JsonNode categoryNode = items.get(position);
+                            if (ConfigLoader.isNestedArray()) {
+                                categoryNode = categoryNode.get(0); // Xử lý cấu trúc lồng mảng
+                            }
+
+                            String urlField = ConfigLoader.getCategoryUrlField();
+                            String categoryUrl = null;
+                            if (urlField.contains(".")) {
+                                String[] fields = urlField.split("\\.");
+                                JsonNode urlNode = categoryNode;
+                                for (String field : fields) {
+                                    urlNode = urlNode.get(field);
+                                    if (urlNode == null) break;
+                                }
+                                categoryUrl = urlNode != null ? urlNode.asText() : null;
+                            } else {
+                                categoryUrl = categoryNode.has(urlField) ? categoryNode.get(urlField).asText() : null;
+                            }
+
+                            if (categoryUrl != null) {
+                                // Lấy phần cuối của URL làm danh mục
+                                String[] urlParts = categoryUrl.split("/");
+                                category = urlParts[urlParts.length - 1];
+                                // Cắt bỏ đuôi nếu có
+                                String suffix = ConfigLoader.getCategoryUrlSuffix();
+                                if (!suffix.isEmpty() && category.endsWith(suffix)) {
+                                    category = category.substring(0, category.length() - suffix.length());
+                                }
+                            }
+                        }
+                    }
+                }
+                if (category == null) {
+                    logger.warn("Could not determine category for URL: {}", url);
+                    category = "unknown";
+                }
+
                 String content = "";
                 for (String selector : CONTENT_SELECTORS) {
                     content = doc.select(selector).text();
                     if (!content.isEmpty()) {
                         logger.debug("Found content using selector: {}", selector);
                         break;
+                    }
+                }
+                if (content.isEmpty()) {
+                    logger.warn("Could not parse content for URL: {}, trying default selectors", url);
+                    for (String selector : ConfigLoader.getDefaultContentSelectors()) {
+                        content = doc.select(selector).text();
+                        if (!content.isEmpty()) {
+                            logger.debug("Found content using default selector: {}", selector);
+                            break;
+                        }
                     }
                 }
                 if (content.isEmpty()) {
@@ -105,8 +154,9 @@ public class ArticleParser {
                 article.setContent(content);
                 article.setPublishTime(publishTime);
                 article.setAuthor(author);
+                article.setCategory(category);
 
-                logger.info("Parsed new article: {}", article.getUrl());
+                logger.debug("Parsed article: {}", article.getTitle());
                 return article;
             } catch (HttpStatusException e) {
                 if (e.getStatusCode() == 429) {

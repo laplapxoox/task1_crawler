@@ -16,10 +16,11 @@ public class MainCrawler {
             VisitedUrlsManager visitedUrlsManager = new VisitedUrlsManager();
             WebCrawler webCrawler = new WebCrawler(linkExtractor, articleParser, articleStorage, visitedUrlsManager);
 
-            Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
+            SchedulerFactory schedulerFactory = new StdSchedulerFactory();
+            Scheduler scheduler = schedulerFactory.getScheduler();
 
             JobDetail job = JobBuilder.newJob(CrawlWebsiteJob.class)
-                    .withIdentity("crawlWebsiteJob", "default")
+                    .withIdentity("crawlJob", "default")
                     .build();
 
             job.getJobDataMap().put("webCrawler", webCrawler);
@@ -35,18 +36,9 @@ public class MainCrawler {
             scheduler.scheduleJob(job, trigger);
             scheduler.start();
 
-            logger.info("Web crawler started");
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    scheduler.shutdown(true);
-                    logger.info("Scheduler shut down successfully.");
-                } catch (SchedulerException e) {
-                    logger.error("Error shutting down scheduler", e);
-                }
-            }));
-        } catch (SchedulerException e) {
-            logger.error("Error starting web crawler", e);
+            logger.info("Scheduler started. Crawling will run every 5 minutes.");
+        } catch (Exception e) {
+            logger.error("Error starting the crawler", e);
         }
     }
 }
