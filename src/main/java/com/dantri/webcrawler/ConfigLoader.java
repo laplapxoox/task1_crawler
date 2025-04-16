@@ -92,8 +92,8 @@ public class ConfigLoader {
         return getDomainConfig().get("categoryPosition").asInt();
     }
 
-    public static boolean isNestedArray() {
-        return getDomainConfig().get("isNestedArray").asBoolean();
+    public static String getBreadcrumbItemListStructure() {
+        return getDomainConfig().get("breadcrumbItemListStructure").asText();
     }
 
     public static String getCategoryUrlField() {
@@ -106,14 +106,6 @@ public class ConfigLoader {
 
     public static String getTimestampPattern() {
         return getDomainConfig().get("timestampPattern").asText();
-    }
-
-    public static String getDateFormatHandling() {
-        return getDomainConfig().get("dateFormatHandling").asText();
-    }
-
-    public static String getDefaultOffset() {
-        return getDomainConfig().get("defaultOffset").asText();
     }
 
     public static List<Integer> getRetryStatusCodes() {

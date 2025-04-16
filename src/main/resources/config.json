@@ -1,5 +1,5 @@
 {
-  "currentDomain": "dantri",
+  "currentDomain": "vietnamnet",
   "domains": [
 	{
 	  "name": "dantri",
@@ -14,12 +14,10 @@
 		"div[itemprop=\"articleBody\"]"
 	  ],
 	  "categoryPosition": 1,
-	  "isNestedArray": true,
+	  "breadcrumbItemListStructure": true,
 	  "categoryUrlField": "item",
 	  "categoryUrlSuffix": ".htm",
-	  "timestampPattern": ".*-(\\d{17})\\.htm",
-	  "dateFormatHandling": "strict",
-	  "defaultOffset": "+07:00"
+	  "timestampPattern": ".*-(\\d{17})\\.htm"
 	},
 	{
 	  "name": "vnexpress",
@@ -28,12 +26,10 @@
 	  "categoryUrlPattern": "https://vnexpress\\.net/.*(?<!-\\d+\\.html)",
 	  "contentSelectors": ["article.fck_detail p"],
 	  "categoryPosition": 0,
-	  "isNestedArray": false,
+	  "breadcrumbItemListStructure": false,
 	  "categoryUrlField": "item.@id",
 	  "categoryUrlSuffix": "",
-	  "timestampPattern": ".*-(\\d+)\\.html",
-	  "dateFormatHandling": "strict",
-	  "defaultOffset": "+07:00"
+	  "timestampPattern": ".*-(\\d+)\\.html"
 	},
 	{
 	  "name": "vietnamnet",
@@ -44,12 +40,10 @@
 		"div.content-detail.content-mobile-change"
 	  ],
 	  "categoryPosition": 1,
-	  "isNestedArray": false,
+	  "breadcrumbItemListStructure": false,
 	  "categoryUrlField": "item",
 	  "categoryUrlSuffix": "",
-	  "timestampPattern": ".*-(\\d+)\\.html",
-	  "dateFormatHandling": "fixWhitespace",
-	  "defaultOffset": "+07:00"
+	  "timestampPattern": ".*-(\\d+)\\.html"
 	},
 	{
 	  "name": "thanhnien",
@@ -58,12 +52,10 @@
 	  "categoryUrlPattern": "https://thanhnien\\.vn/.*\\.htm(?<!-\\d+\\.htm)",
 	  "contentSelectors": ["div.detail__cmain-main"],
 	  "categoryPosition": 1,
-	  "isNestedArray": false,
+	  "breadcrumbItemListStructure": false,
 	  "categoryUrlField": "item.@id",
 	  "categoryUrlSuffix": ".htm",
-	  "timestampPattern": ".*-(\\d+)\\.htm",
-	  "dateFormatHandling": "strict",
-	  "defaultOffset": "+07:00"
+	  "timestampPattern": ".*-(\\d+)\\.htm"
 	},
 	{
 	  "name": "tuoitre",
@@ -72,12 +64,10 @@
 	  "categoryUrlPattern": "https://tuoitre\\.vn/.*\\.htm(?<!-\\d{17}\\.htm)",
 	  "contentSelectors": ["div.detail__cmain"],
 	  "categoryPosition": 1,
-	  "isNestedArray": false,
+	  "breadcrumbItemListStructure": false,
 	  "categoryUrlField": "item.@id",
 	  "categoryUrlSuffix": ".htm",
-	  "timestampPattern": ".*-(\\d{17})\\.htm",
-	  "dateFormatHandling": "strict",
-	  "defaultOffset": "+07:00"
+	  "timestampPattern": ".*-(\\d{17})\\.htm"
 	}
   ],
   "settings": {

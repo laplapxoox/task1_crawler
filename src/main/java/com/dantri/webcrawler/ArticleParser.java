@@ -11,11 +11,15 @@ import org.jsoup.parser.Parser;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * Parses article details from a given URL.
+ * Phân tích lấy dữ liệu
  */
 public class ArticleParser {
     private static final Logger logger = LoggerFactory.getLogger(ArticleParser.class);
@@ -26,6 +30,25 @@ public class ArticleParser {
     private static final List<String> CONTENT_SELECTORS = ConfigLoader.getContentSelectors();
     private static final List<Integer> RETRY_STATUS_CODES = ConfigLoader.getRetryStatusCodes();
     private static final ObjectMapper mapper = new ObjectMapper();
+
+    private static final DateTimeFormatter[] DATE_FORMATTERS = new DateTimeFormatter[] {
+            // Định dạng chuẩn: "2025-04-15T11:46:00+07:00"
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME,
+            // Định dạng không có nano giây: "2025-04-15T11:46:00+07:00"
+            new DateTimeFormatterBuilder()
+                    .appendPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
+                    .toFormatter(Locale.US),
+            // Định dạng có nano giây tùy chọn: "2025-04-15T12:06:00.000+07:00"
+            new DateTimeFormatterBuilder()
+                    .appendPattern("yyyy-MM-dd'T'HH:mm:ss[.SSSSSS][.SSS]XXX")
+                    .toFormatter(Locale.US),
+            // Định dạng không có offset: "2025-04-15T21:26:12.060000"
+            new DateTimeFormatterBuilder()
+                    .appendPattern("yyyy-MM-dd'T'HH:mm:ss[.SSSSSS][.SSS]")
+                    .toFormatter(Locale.US)
+    };
+
+    private static final String DEFAULT_OFFSET = "+07:00";
 
     public Article parseArticle(String url) {
 //        logger.info("Parsing article: {}", url);
@@ -84,21 +107,9 @@ public class ArticleParser {
                 }
 
                 String publishTimeStr = newsArticleNode.get("datePublished").asText();
-                String dateFormatHandling = ConfigLoader.getDateFormatHandling();
-                if ("fixWhitespace".equals(dateFormatHandling)) {
-                    publishTimeStr = publishTimeStr.replaceAll("\\s+(?=[+-]\\d{2}:\\d{2})", "");
-                }
-
-                if (!publishTimeStr.matches(".*[+-]\\d{2}:\\d{2}")) {
-                    String defaultOffset = ConfigLoader.getDefaultOffset();
-                    publishTimeStr = publishTimeStr + defaultOffset;
-                }
-
-                OffsetDateTime offsetDateTime;
-                try {
-                    offsetDateTime = OffsetDateTime.parse(publishTimeStr);
-                } catch (Exception e) {
-                    logger.error("Failed to parse datePublished: {}", publishTimeStr, e);
+                OffsetDateTime offsetDateTime = parseDateTime(publishTimeStr);
+                if (offsetDateTime == null) {
+                    logger.error("Failed to parse datePublished: {}", publishTimeStr);
                     return null;
                 }
                 Date publishTime = Date.from(offsetDateTime.atZoneSameInstant(ZoneId.systemDefault()).toInstant());
@@ -110,12 +121,13 @@ public class ArticleParser {
                         int position = ConfigLoader.getCategoryPosition();
                         if (items.size() > position) {
                             JsonNode categoryNode = items.get(position);
-                            if (ConfigLoader.isNestedArray()) {
+                            String structure = ConfigLoader.getBreadcrumbItemListStructure();
+                            if ("nested".equals(structure)) {
                                 categoryNode = categoryNode.get(0);
                             }
 
                             String urlField = ConfigLoader.getCategoryUrlField();
-                            String categoryUrl;
+                            String categoryUrl = null;
                             if (urlField.contains(".")) {
                                 String[] fields = urlField.split("\\.");
                                 JsonNode urlNode = categoryNode;
@@ -129,10 +141,8 @@ public class ArticleParser {
                             }
 
                             if (categoryUrl != null) {
-                                // Lấy phần cuối của URL làm danh mục
                                 String[] urlParts = categoryUrl.split("/");
                                 category = urlParts[urlParts.length - 1];
-                                // Cắt bỏ đuôi nếu có
                                 String suffix = ConfigLoader.getCategoryUrlSuffix();
                                 if (!suffix.isEmpty() && category.endsWith(suffix)) {
                                     category = category.substring(0, category.length() - suffix.length());
@@ -201,6 +211,32 @@ public class ArticleParser {
                 return null;
             }
         }
+        return null;
+    }
+
+    private OffsetDateTime parseDateTime(String dateTimeStr) {
+        String cleanedDateTimeStr = dateTimeStr.replaceAll("\\s+(?=[+-]\\d{2}:\\d{2})", "");
+
+        for (DateTimeFormatter formatter : DATE_FORMATTERS) {
+            try {
+                return OffsetDateTime.parse(cleanedDateTimeStr, formatter);
+            } catch (DateTimeParseException e) {
+                // Bỏ qua
+            }
+        }
+
+        // Nếu không parse được, thử thêm offset mặc định
+        if (!cleanedDateTimeStr.matches(".*[+-]\\d{2}:\\d{2}")) {
+            cleanedDateTimeStr = cleanedDateTimeStr + DEFAULT_OFFSET;
+            for (DateTimeFormatter formatter : DATE_FORMATTERS) {
+                try {
+                    return OffsetDateTime.parse(cleanedDateTimeStr, formatter);
+                } catch (DateTimeParseException e) {
+                    // Bỏ qua
+                }
+            }
+        }
+
         return null;
     }
 }
